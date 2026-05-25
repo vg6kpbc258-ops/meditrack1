@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="html-root">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MediTrack - إدارة الأدوية</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{font-family:'Cairo',sans-serif;}
+body{transition:background 0.3s,color 0.3s;}
+.dark-mode{background:#0f172a;color:#e2e8f0;}
+.dark-mode .bg-white{background:#1e293b!important;}
+.dark-mode .bg-gray-50{background:#0f172a!important;}
+.dark-mode .bg-gray-100{background:#1e293b!important;}
+.dark-mode .bg-gray-200{background:#334155!important;}
+.dark-mode .text-gray-700{color:#cbd5e1!important;}
+.dark-mode .text-gray-600{color:#94a3b8!important;}
+.dark-mode .text-gray-500{color:#64748b!important;}
+.dark-mode .text-gray-800{color:#e2e8f0!important;}
+.dark-mode .text-gray-900{color:#f1f5f9!important;}
+.dark-mode .border-gray-200{border-color:#334155!important;}
+.dark-mode .border-gray-300{border-color:#475569!important;}
+.dark-mode .shadow-sm{box-shadow:0 1px 3px rgba(0,0,0,0.5)!important;}
+.dark-mode .shadow{box-shadow:0 2px 6px rgba(0,0,0,0.5)!important;}
+.dark-mode .shadow-lg{box-shadow:0 4px 12px rgba(0,0,0,0.5)!important;}
+.dark-mode .hover\:bg-gray-50:hover{background:#1e293b!important;}
+.dark-mode .hover\:bg-gray-100:hover{background:#334155!important;}
+.dark-mode input,.dark-mode select,.dark-mode textarea{background:#334155!important;border-color:#475569!important;color:#e2e8f0!important;}
+.dark-mode input::placeholder,.dark-mode textarea::placeholder{color:#64748b!important;}
+.fade-in{animation:fadeIn 0.3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.slide-in{animation:slideIn 0.4s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+.pulse-green{animation:pulseGreen 2s infinite;}
+@keyframes pulseGreen{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.4);}50%{box-shadow:0 0 0 8px rgba(34,197,94,0);}}
+.streak-fire{animation:streakFire 1s ease-in-out infinite alternate;}
+@keyframes streakFire{from{transform:scale(1);}to{transform:scale(1.15);}}
+.progress-bar{transition:width 0.8s ease;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem;}
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:100;animation:toastIn 0.3s ease;}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#888;border-radius:2px;}
+.ltr{direction:ltr;}
+.nav-item{transition:all 0.2s;}
+.nav-item.active{border-right:3px solid #6366f1;}
+.dose-btn{transition:all 0.2s;transform-origin:center;}
+.dose-btn:active{transform:scale(0.95);}
+.calendar-day{width:100%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.calendar-day:hover{transform:scale(1.1);}
+</style>
+<script>
+tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#6366f1',success:'#22c55e',warning:'#f59e0b',danger:'#ef4444'}}}}
+</script>
+</head>
+<body class="bg-gray-50 min-h-screen" id="app-body">
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useContext,useReducer,useRef,useCallback,useMemo}=React;
+
+// ─── TRANSLATIONS ──────────────────────────────────────────
+const TR={
+ar:{
+  appName:'ميدي تراك',tagline:'إدارة أدويتك بذكاء',login:'تسجيل الدخول',
+  register:'إنشاء حساب',logout:'تسجيل الخروج',email:'البريد الإلكتروني',
+  password:'كلمة المرور',name:'الاسم الكامل',age:'العمر',gender:'الجنس',
+  male:'ذكر',female:'أنثى',diagnosis:'التشخيص / الحالة المرضية',
+  role:'الدور',patient:'مريض',doctor:'طبيب / مقدم رعاية',
+  dashboard:'لوحة التحكم',medications:'الأدوية',history:'السجل',
+  reports:'التقارير',profile:'البروفايل',settings:'الإعدادات',
+  doctorView:'عرض الطبيب',addMedication:'+ إضافة دواء',editMedication:'تعديل الدواء',
+  medName:'اسم الدواء',dosage:'الجرعة',timesPerDay:'مرات في اليوم',
+  scheduleTime:'مواعيد الجرعات',startDate:'تاريخ البدء',endDate:'تاريخ الانتهاء',
+  notes:'ملاحظات',importance:'أهمية هذا الدواء',risks:'مخاطر التوقف عنه',
+  reminderEnabled:'تفعيل التذكير',takeDose:'✓ تم أخذ الجرعة',skipDose:'تخطي',
+  dosesTaken:'جرعات أُخذت',dosesMissed:'جرعات فائتة',dosesScheduled:'مجدولة',
+  adherence:'الالتزام',streak:'الأيام المتتالية',points:'النقاط',days:'يوم',
+  todayDoses:'جرعات اليوم',weeklyAdherence:'الالتزام الأسبوعي',
+  monthlyAdherence:'الالتزام الشهري',excellent:'ممتاز 🌟',good:'جيد 👍',
+  needsImprovement:'يحتاج تحسين ⚠️',noMedications:'لا توجد أدوية مضافة',
+  addFirstMed:'أضف أول دواء',save:'حفظ',cancel:'إلغاء',delete:'حذف',edit:'تعديل',
+  confirmDelete:'هل أنت متأكد من الحذف؟',darkMode:'الوضع الليلي',
+  language:'اللغة',notifications:'الإشعارات',achievements:'الإنجازات',
+  aiInsights:'رؤى ذكية 🤖',patients:'المرضى',bloodPressure:'ضغط الدم',
+  bloodSugar:'مستوى السكر',painLevel:'مستوى الألم',addHealthData:'+ بيانات صحية',
+  exportPDF:'تصدير PDF',exportCSV:'تصدير CSV',today:'اليوم',
+  thisWeek:'هذا الأسبوع',thisMonth:'هذا الشهر',streakDays:'يوم متواصل',
+  keepGoing:'واصل! 🔥',noData:'لا توجد بيانات',welcomeBack:'مرحباً',
+  dontHaveAccount:'ليس لديك حساب؟',alreadyHaveAccount:'لديك حساب؟',
+  loginError:'بريد إلكتروني أو كلمة مرور غير صحيحة',emailExists:'البريد مسجّل مسبقاً',
+  profileUpdated:'✅ تم تحديث البروفايل',medicationAdded:'✅ تم إضافة الدواء',
+  medicationUpdated:'✅ تم تحديث الدواء',medicationDeleted:'✅ تم حذف الدواء',
+  doseTaken:'✅ تم تسجيل الجرعة!',doseSkipped:'تم تخطي الجرعة',
+  filterByMed:'فلتر حسب الدواء',all:'الكل',prevMonth:'السابق',nextMonth:'التالي',
+  adherenceByMed:'الالتزام حسب الدواء',comparisonTitle:'مقارنة بالأسبوع السابق',
+  improvement:'تحسن ↑',declined:'تراجع ↓',same:'لا تغيير',
+  healthTrends:'المؤشرات الصحية',nextDose:'الجرعة القادمة',snooze15:'تأجيل 15 دقيقة',
+  months:['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],
+  weekdays:['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'],
+  dailyTip:'نصيحة اليوم 💡',tips:[
+    'اشرب 8 أكواب ماء يوميًا',
+    'تذكر أن الانتظام في الدواء مفتاح الشفاء',
+    'النوم الكافي يعزز فعالية العلاج',
+    'ابتعد عن التوتر وتنفس بعمق',
+    'التغذية الجيدة تدعم فعالية دوائك',
+    'المشي يوميًا 30 دقيقة مفيد جدًا',
+    'لا تتوقف عن الدواء دون استشارة الطبيب'
+  ],
+  goodMorning:'صباح الخير ☀️',goodAfternoon:'مساء الخير 🌤️',goodEvening:'مساء النور 🌙',
+  sendNote:'إرسال ملاحظة',noteSent:'تم إرسال الملاحظة',addNote:'ملاحظة',
+  perfectDay:'يوم مثالي! 🎉',badgeEarned:'إنجاز جديد! 🏆',
+  chooseTime:'اختر الوقت',medColor:'لون الدواء',photo:'صورة الدواء',
+  uploadPhoto:'رفع صورة',adherenceStatus:'حالة الالتزام',
+  totalMeds:'إجمالي الأدوية',activeMeds:'أدوية نشطة',
+  streakRecord:'أعلى سلسلة',pointsEarned:'نقاط مكتسبة',
+},
+en:{
+  appName:'MediTrack',tagline:'Smart Medication Management',login:'Login',
+  register:'Create Account',logout:'Logout',email:'Email',password:'Password',
+  name:'Full Name',age:'Age',gender:'Gender',male:'Male',female:'Female',
+  diagnosis:'Diagnosis / Medical Condition',role:'Role',patient:'Patient',
+  doctor:'Doctor / Caregiver',dashboard:'Dashboard',medications:'Medications',
+  history:'History',reports:'Reports',profile:'Profile',settings:'Settings',
+  doctorView:'Doctor View',addMedication:'+ Add Medication',editMedication:'Edit Medication',
+  medName:'Medication Name',dosage:'Dosage',timesPerDay:'Times per day',
+  scheduleTime:'Dose Schedule',startDate:'Start Date',endDate:'End Date',
+  notes:'Notes',importance:'Why this medication matters',risks:'Risks of stopping',
+  reminderEnabled:'Enable Reminder',takeDose:'✓ Take Dose',skipDose:'Skip',
+  dosesTaken:'Doses Taken',dosesMissed:'Doses Missed',dosesScheduled:'Scheduled',
+  adherence:'Adherence',streak:'Day Streak',points:'Points',days:'days',
+  todayDoses:"Today's Doses",weeklyAdherence:'Weekly Adherence',
+  monthlyAdherence:'Monthly Adherence',excellent:'Excellent 🌟',good:'Good 👍',
+  needsImprovement:'Needs Improvement ⚠️',noMedications:'No medications added',
+  addFirstMed:'Add your first medication',save:'Save',cancel:'Cancel',delete:'Delete',
+  edit:'Edit',confirmDelete:'Are you sure you want to delete?',darkMode:'Dark Mode',
+  language:'Language',notifications:'Notifications',achievements:'Achievements',
+  aiInsights:'Smart Insights 🤖',patients:'Patients',bloodPressure:'Blood Pressure',
+  bloodSugar:'Blood Sugar',painLevel:'Pain Level',addHealthData:'+ Health Data',
+  exportPDF:'Export PDF',exportCSV:'Export CSV',today:'Today',
+  thisWeek:'This Week',thisMonth:'This Month',streakDays:'day streak',
+  keepGoing:'Keep going! 🔥',noData:'No data available',welcomeBack:'Welcome back',
+  dontHaveAccount:"Don't have an account?",alreadyHaveAccount:'Already have an account?',
+  loginError:'Invalid email or password',emailExists:'Email already registered',
+  profileUpdated:'✅ Profile updated',medicationAdded:'✅ Medication added',
+  medicationUpdated:'✅ Medication updated',medicationDeleted:'✅ Medication deleted',
+  doseTaken:'✅ Dose recorded!',doseSkipped:'Dose skipped',
+  filterByMed:'Filter by medication',all:'All',prevMonth:'Previous',nextMonth:'Next',
+  adherenceByMed:'Adherence by Medication',comparisonTitle:'Comparison with last week',
+  improvement:'Improved ↑',declined:'Declined ↓',same:'No change',
+  healthTrends:'Health Trends',nextDose:'Next dose',snooze15:'Snooze 15 min',
+  months:['January','February','March','April','May','June','July','August','September','October','November','December'],
+  weekdays:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+  dailyTip:'Daily Tip 💡',tips:[
+    'Drink 8 glasses of water daily',
+    'Consistency in medication is key to recovery',
+    'Good sleep enhances medication effectiveness',
+    'Reduce stress and breathe deeply',
+    'Good nutrition supports your medication',
+    'Walking 30 minutes daily is very beneficial',
+    'Never stop medication without consulting your doctor'
+  ],
+  goodMorning:'Good Morning ☀️',goodAfternoon:'Good Afternoon 🌤️',goodEvening:'Good Evening 🌙',
+  sendNote:'Send Note',noteSent:'Note sent',addNote:'Note',
+  perfectDay:'Perfect Day! 🎉',badgeEarned:'New Achievement! 🏆',
+  chooseTime:'Choose Time',medColor:'Medication Color',photo:'Medication Photo',
+  uploadPhoto:'Upload Photo',adherenceStatus:'Adherence Status',
+  totalMeds:'Total Medications',activeMeds:'Active Medications',
+  streakRecord:'Best Streak',pointsEarned:'Points Earned',
+}};
+
+// ─── INITIAL MOCK DATA ─────────────────────────────────────
+const ACHIEVEMENTS_DEF=[
+  {id:'first_dose',icon:'💊',titleAr:'أول جرعة',titleEn:'First Dose',descAr:'سجّلت جرعتك الأولى',descEn:'Logged your first dose'},
+  {id:'streak_7',icon:'🔥',titleAr:'7 أيام متواصلة',titleEn:'7-Day Streak',descAr:'التزمت 7 أيام متواصلة',descEn:'7 consecutive days of adherence'},
+  {id:'streak_30',icon:'⭐',titleAr:'شهر كامل',titleEn:'Full Month',descAr:'التزمت شهرًا كاملًا',descEn:'30 consecutive days of adherence'},
+  {id:'perfect_week',icon:'🏆',titleAr:'أسبوع مثالي',titleEn:'Perfect Week',descAr:'التزام 100% لأسبوع كامل',descEn:'100% adherence for a full week'},
+  {id:'points_100',icon:'🌟',titleAr:'100 نقطة',titleEn:'100 Points',descAr:'جمعت 100 نقطة',descEn:'Earned 100 points'},
+  {id:'streak_100',icon:'👑',titleAr:'100 يوم',titleEn:'100 Days',descAr:'100 يوم متواصل',descEn:'100 consecutive days'},
+];
+
+const MED_COLORS=['#6366f1','#22c55e','#f59e0b','#ef4444','#ec4899','#06b6d4','#8b5cf6','#f97316'];
+
+const SAMPLE_PATIENT={
+  id:'patient1',name:'أحمد محمد',nameEn:'Ahmad Mohammed',age:45,gender:'male',
+  diagnosis:'ضغط الدم + السكري النوع الثاني',email:'demo@meditrack.com',password:'demo123',
+  role:'patient',points:0,profileImage:null,doctorId:'doctor1'
+};
+const SAMPLE_DOCTOR={
+  id:'doctor1',name:'د. سارة العمري',nameEn:'Dr. Sarah Al-Omari',age:38,gender:'female',
+  diagnosis:'',email:'doctor@meditrack.com',password:'doctor123',role:'doctor',
+  points:0,profileImage:null,patientsIds:['patient1']
+};
+
+function getDaysAgo(n){
+  const d=new Date();d.setDate(d.getDate()-n);
+  return d.toISOString().slice(0,10);
+}
+function getDateStr(d){return (d||new Date()).toISOString().slice(0,10);}
+function nowISO(){return new Date().toISOString();}
+
+function buildSampleMeds(){
+  const today=getDateStr();
+  const start=getDaysAgo(30);
+  return [
+    {id:'med1',patientId:'patient1',name:'ميتفورمين',namEn:'Metformin',dosage:'500mg',timesPerDay:2,
+     schedule:['08:00','20:00'],startDate:start,endDate:getDaysAgo(-60),
+     notes:'مع الطعام',importance:'تنظيم مستوى السكر في الدم',risks:'ارتفاع السكر',
+     reminderEnabled:true,color:'#22c55e',image:null},
+    {id:'med2',patientId:'patient1',name:'أملوديبين',namEn:'Amlodipine',dosage:'5mg',timesPerDay:1,
+     schedule:['09:00'],startDate:start,endDate:getDaysAgo(-60),
+     notes:'في الصباح',importance:'تنظيم ضغط الدم',risks:'ارتفاع الضغط',
+     reminderEnabled:true,color:'#6366f1',image:null},
+    {id:'med3',patientId:'patient1',name:'أسبرين',namEn:'Aspirin',dosage:'100mg',timesPerDay:1,
+     schedule:['12:00'],startDate:start,endDate:getDaysAgo(-60),
+     notes:'مع الغداء',importance:'الوقاية من تجلط الدم',risks:'خطر الجلطة',
+     reminderEnabled:false,color:'#ef4444',image:null},
+  ];
+}
+
+function buildSampleDoses(meds){
+  const doses=[];
+  for(let d=0;d<30;d++){
+    const dateStr=getDaysAgo(29-d);
+    meds.forEach(med=>{
+      med.schedule.forEach((time,idx)=>{
+        const id=`dose_${med.id}_${dateStr}_${idx}`;
+        const scheduledAt=`${dateStr}T${time}:00`;
+        const rand=Math.random();
+        let taken=rand>0.15;
+        if(d===0&&rand>0.3)taken=true;
+        doses.push({
+          id,medicationId:med.id,patientId:med.patientId,
+          scheduledAt,takenAt:taken?scheduledAt:null,skipped:!taken&&rand<0.05,note:null
+        });
+      });
+    });
+  }
+  return doses;
+}
+
+const sampleMeds=buildSampleMeds();
+const sampleDoses=buildSampleDoses(sampleMeds);
+
+const INIT_STATE={
+  currentUser:null,
+  patients:[SAMPLE_PATIENT,SAMPLE_DOCTOR],
+  medications:sampleMeds,
+  doses:sampleDoses,
+  healthData:[],
+  language:'ar',
+  darkMode:false,
+  toast:null,
+  page:'login',
+  pageParam:null,
+  notifications:[],
+};
+
+// ─── UTILITIES ─────────────────────────────────────────────
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+
+function calcAdherence(doses,date){
+  const dayDoses=doses.filter(d=>d.scheduledAt.startsWith(date));
+  if(!dayDoses.length)return null;
+  const taken=dayDoses.filter(d=>d.takenAt).length;
+  return Math.round((taken/dayDoses.length)*100);
+}
+
+function getAdherenceColor(pct){
+  if(pct===null)return 'gray';
+  if(pct===100)return 'green';
+  if(pct>0)return 'yellow';
+  return 'red';
+}
+
+function getAdherenceColorClass(pct){
+  if(pct===null)return 'bg-gray-200 text-gray-400';
+  if(pct===100)return 'bg-green-500 text-white';
+  if(pct>0)return 'bg-yellow-400 text-white';
+  return 'bg-red-500 text-white';
+}
+
+function calcStreak(doses,patientId){
+  let streak=0;
+  const today=new Date();
+  for(let i=0;i<365;i++){
+    const d=new Date(today);d.setDate(d.getDate()-i);
+    const ds=getDateStr(d);
+    const pct=calcAdherence(doses.filter(x=>x.patientId===patientId),ds);
+    if(pct===100)streak++;
+    else if(pct!==null)break;
+    else if(i>0)break;
+  }
+  return streak;
+}
+
+function calcPoints(doses,patientId){
+  const myDoses=doses.filter(d=>d.patientId===patientId);
+  const dates=[...new Set(myDoses.map(d=>d.scheduledAt.slice(0,10)))];
+  let pts=0;
+  dates.forEach(date=>{
+    const pct=calcAdherence(myDoses,date);
+    if(pct===100)pts+=10;
+    else if(pct>0)pts+=3;
+  });
+  return pts;
+}
+
+function getGreeting(lang){
+  const h=new Date().getHours();
+  const t=TR[lang];
+  if(h<12)return t.goodMorning;
+  if(h<17)return t.goodAfternoon;
+  return t.goodEvening;
+}
+
+function getLast7Days(){
+  return Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return getDateStr(d);});
+}
+function getLast4Weeks(){
+  const weeks=[];
+  for(let w=3;w>=0;w--){
+    const days=[];
+    for(let d=6;d>=0;d--){const dd=new Date();dd.setDate(dd.getDate()-(w*7+d));days.push(getDateStr(dd));}
+    weeks.push(days);
+  }
+  return weeks;
+}
+
+function formatTime(timeStr){
+  if(!timeStr)return '';
+  const [h,m]=timeStr.split(':');
+  const hour=parseInt(h);
+  const ampm=hour<12?'ص':'م';
+  const h12=hour%12||12;
+  return `${h12}:${m} ${ampm}`;
+}
+
+function getDaysInMonth(year,month){return new Date(year,month+1,0).getDate();}
+function getFirstDayOfMonth(year,month){return new Date(year,month,1).getDay();}
+
+// ─── STATE ──────────────────────────────────────────────────
+function reducer(state,action){
+  switch(action.type){
+    case 'LOGIN':return{...state,currentUser:action.user};
+    case 'LOGOUT':return{...state,currentUser:null,page:'login'};
+    case 'SET_PAGE':return{...state,page:action.page,pageParam:action.param||null};
+    case 'SET_LANG':{
+      const html=document.getElementById('html-root');
+      html.setAttribute('lang',action.lang);
+      html.setAttribute('dir',action.lang==='ar'?'rtl':'ltr');
+      return{...state,language:action.lang};
+    }
+    case 'SET_DARK':{
+      const body=document.getElementById('app-body');
+      if(action.val)body.classList.add('dark-mode');
+      else body.classList.remove('dark-mode');
+      return{...state,darkMode:action.val};
+    }
+    case 'SHOW_TOAST':return{...state,toast:{msg:action.msg,kind:action.kind||'success'}};
+    case 'HIDE_TOAST':return{...state,toast:null};
+    case 'ADD_PATIENT':return{...state,patients:[...state.patients,action.patient]};
+    case 'UPDATE_PATIENT':return{...state,
+      patients:state.patients.map(p=>p.id===action.id?{...p,...action.updates}:p),
+      currentUser:state.currentUser?.id===action.id?{...state.currentUser,...action.updates}:state.currentUser
+    };
+    case 'ADD_MED':return{...state,medications:[...state.medications,action.med]};
+    case 'UPDATE_MED':return{...state,medications:state.medications.map(m=>m.id===action.id?{...m,...action.updates}:m)};
+    case 'DELETE_MED':return{...state,
+      medications:state.medications.filter(m=>m.id!==action.id),
+      doses:state.doses.filter(d=>d.medicationId!==action.id)
+    };
+    case 'LOG_DOSE':return{...state,
+      doses:state.doses.map(d=>d.id===action.id?{...d,takenAt:nowISO(),skipped:false}:d)
+    };
+    case 'SKIP_DOSE':return{...state,
+      doses:state.doses.map(d=>d.id===action.id?{...d,takenAt:null,skipped:true}:d)
+    };
+    case 'ADD_DOSE':return{...state,doses:[...state.doses,action.dose]};
+    case 'ADD_DOSES':return{...state,doses:[...state.doses,...action.doses]};
+    case 'ADD_HEALTH':return{...state,healthData:[...state.healthData,action.data]};
+    default:return state;
+  }
+}
+
+function loadState(){
+  try{
+    const s=localStorage.getItem('meditrack_v2');
+    if(s)return JSON.parse(s);
+  }catch(e){}
+  return INIT_STATE;
+}
+
+const AppCtx=React.createContext();
+
+function AppProvider({children}){
+  const [state,dispatch]=useReducer(reducer,null,loadState);
+  useEffect(()=>{
+    localStorage.setItem('meditrack_v2',JSON.stringify(state));
+  },[state]);
+  useEffect(()=>{
+    if(state.darkMode){document.getElementById('app-body').classList.add('dark-mode');}
+    const html=document.getElementById('html-root');
+    html.setAttribute('lang',state.language);
+    html.setAttribute('dir',state.language==='ar'?'rtl':'ltr');
+  },[]);
+  return <AppCtx.Provider value={{state,dispatch}}>{children}</AppCtx.Provider>;
+}
+
+function useApp(){return useContext(AppCtx);}
+function useT(){const {state}=useApp();return TR[state.language];}
+
+// ─── ENSURE TODAY DOSES ────────────────────────────────────
+function useEnsureTodayDoses(){
+  const {state,dispatch}=useApp();
+  useEffect(()=>{
+    if(!state.currentUser||state.currentUser.role!=='patient')return;
+    const today=getDateStr();
+    const myMeds=state.medications.filter(m=>m.patientId===state.currentUser.id);
+    const newDoses=[];
+    myMeds.forEach(med=>{
+      if(today<med.startDate||today>med.endDate)return;
+      med.schedule.forEach((time,idx)=>{
+        const id=`dose_${med.id}_${today}_${idx}`;
+        if(!state.doses.find(d=>d.id===id)){
+          newDoses.push({id,medicationId:med.id,patientId:state.currentUser.id,
+            scheduledAt:`${today}T${time}:00`,takenAt:null,skipped:false,note:null});
+        }
+      });
+    });
+    if(newDoses.length)dispatch({type:'ADD_DOSES',doses:newDoses});
+  },[state.currentUser?.id,state.medications.length]);
+}
+
+// ─── UI COMPONENTS ─────────────────────────────────────────
+function Toast(){
+  const {state,dispatch}=useApp();
+  useEffect(()=>{
+    if(state.toast){const t=setTimeout(()=>dispatch({type:'HIDE_TOAST'}),3000);return()=>clearTimeout(t);}
+  },[state.toast]);
+  if(!state.toast)return null;
+  const colors={success:'bg-green-500',error:'bg-red-500',warning:'bg-yellow-500',info:'bg-blue-500'};
+  return(
+    <div className={`toast text-white px-6 py-3 rounded-xl shadow-lg text-sm font-semibold ${colors[state.toast.kind]||'bg-green-500'}`}>
+      {state.toast.msg}
+    </div>
+  );
+}
+
+function Btn({children,onClick,variant='primary',size='md',disabled,className='',type='button'}){
+  const base='font-semibold rounded-xl transition-all duration-200 active:scale-95 ';
+  const sizes={sm:'px-3 py-1.5 text-sm',md:'px-5 py-2.5 text-sm',lg:'px-6 py-3 text-base'};
+  const variants={
+    primary:'bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm',
+    success:'bg-green-500 hover:bg-green-600 text-white shadow-sm',
+    danger:'bg-red-500 hover:bg-red-600 text-white shadow-sm',
+    outline:'border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50',
+    ghost:'text-gray-600 hover:bg-gray-100',
+    warning:'bg-yellow-400 hover:bg-yellow-500 text-white',
+  };
+  return(
+    <button type={type} onClick={onClick} disabled={disabled}
+      className={`${base}${sizes[size]||sizes.md} ${variants[variant]||variants.primary} ${disabled?'opacity-50 cursor-not-allowed':''} ${className}`}>
+      {children}
+    </button>
+  );
+}
+
+function Card({children,className='',onClick}){
+  return(
+    <div onClick={onClick}
+      className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${className} ${onClick?'cursor-pointer hover:shadow-md transition-shadow':''}`}>
+      {children}
+    </div>
+  );
+}
+
+function Input({label,value,onChange,type='text',placeholder,required,min,max,className='',disabled}){
+  return(
+    <div className={`flex flex-col gap-1 ${className}`}>
+      {label&&<label className="text-sm font-semibold text-gray-700">{label}{required&&<span className="text-red-500 mr-1">*</span>}</label>}
+      <input type={type} value={value} onChange={e=>onChange(e.target.value)}
+        placeholder={placeholder} required={required} min={min} max={max} disabled={disabled}
+        className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition-all"/>
+    </div>
+  );
+}
+
+function Select({label,value,onChange,options,required,className=''}){
+  return(
+    <div className={`flex flex-col gap-1 ${className}`}>
+      {label&&<label className="text-sm font-semibold text-gray-700">{label}{required&&<span className="text-red-500 mr-1">*</span>}</label>}
+      <select value={value} onChange={e=>onChange(e.target.value)} required={required}
+        className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+        {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function Modal({open,onClose,title,children,wide}){
+  if(!open)return null;
+  return(
+    <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className={`bg-white rounded-2xl shadow-xl w-full ${wide?'max-w-2xl':'max-w-md'} max-h-[90vh] overflow-y-auto fade-in`}
+        onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <h2 className="font-bold text-lg text-gray-800">{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">×</button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({icon,label,value,color='indigo',sub}){
+  const colors={
+    indigo:'from-indigo-500 to-indigo-600',green:'from-green-500 to-green-600',
+    yellow:'from-yellow-400 to-yellow-500',red:'from-red-500 to-red-600',
+    blue:'from-blue-500 to-blue-600',pink:'from-pink-500 to-pink-600'
+  };
+  return(
+    <Card className="p-4">
+      <div className="flex items-center gap-3">
+        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors[color]||colors.indigo} flex items-center justify-center text-2xl shadow-sm flex-shrink-0`}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 font-medium">{label}</p>
+          <p className="text-xl font-bold text-gray-800">{value}</p>
+          {sub&&<p className="text-xs text-gray-400">{sub}</p>}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function AdherenceBadge({pct}){
+  if(pct===null)return<span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">-</span>;
+  const cls=pct===100?'bg-green-100 text-green-700':pct>0?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700';
+  return<span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cls}`}>{pct}%</span>;
+}
+
+// ─── NAVBAR ────────────────────────────────────────────────
+function Navbar(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  const [menuOpen,setMenuOpen]=useState(false);
+  if(!state.currentUser)return null;
+  const isDoctor=state.currentUser.role==='doctor';
+  const navItems=isDoctor?[
+    {page:'doctor',icon:'👨‍⚕️',label:t.doctorView},
+    {page:'settings',icon:'⚙️',label:t.settings},
+  ]:[
+    {page:'dashboard',icon:'🏠',label:t.dashboard},
+    {page:'medications',icon:'💊',label:t.medications},
+    {page:'history',icon:'📅',label:t.history},
+    {page:'reports',icon:'📊',label:t.reports},
+    {page:'profile',icon:'👤',label:t.profile},
+    {page:'settings',icon:'⚙️',label:t.settings},
+  ];
+  const go=page=>{dispatch({type:'SET_PAGE',page});setMenuOpen(false);};
+  return(
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex flex-col bg-white border-e border-gray-200 shadow-sm w-56 min-h-screen fixed top-0 start-0 z-30">
+        <div className="p-5 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">💊</span>
+            <div>
+              <p className="font-bold text-indigo-600 text-base leading-tight">{t.appName}</p>
+              <p className="text-xs text-gray-400">{t.tagline}</p>
+            </div>
+          </div>
+        </div>
+        <nav className="flex-1 p-3 flex flex-col gap-1">
+          {navItems.map(item=>(
+            <button key={item.page} onClick={()=>go(item.page)}
+              className={`nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all w-full text-start
+                ${state.page===item.page?'bg-indigo-50 text-indigo-700 border-e-4 border-indigo-500':'text-gray-600 hover:bg-gray-50'}`}>
+              <span className="text-lg">{item.icon}</span>{item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-600">
+              {(state.currentUser.name||'U')[0]}
+            </div>
+            <div className="text-xs">
+              <p className="font-semibold text-gray-700 truncate max-w-[110px]">{state.currentUser.name}</p>
+              <p className="text-gray-400">{state.currentUser.role==='doctor'?t.doctor:t.patient}</p>
+            </div>
+          </div>
+          <button onClick={()=>dispatch({type:'LOGOUT'})}
+            className="w-full text-xs text-red-500 hover:text-red-700 font-semibold py-1.5 hover:bg-red-50 rounded-lg transition-all">
+            🚪 {t.logout}
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile top bar */}
+      <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="font-bold text-indigo-600 text-lg">💊 {t.appName}</span>
+          <button onClick={()=>setMenuOpen(!menuOpen)} className="text-gray-600 text-xl p-1">☰</button>
+        </div>
+        {menuOpen&&(
+          <div className="border-t border-gray-100 bg-white shadow-lg">
+            {navItems.map(item=>(
+              <button key={item.page} onClick={()=>go(item.page)}
+                className={`flex items-center gap-3 px-5 py-3 text-sm font-semibold w-full text-start border-b border-gray-50
+                  ${state.page===item.page?'bg-indigo-50 text-indigo-700':'text-gray-600'}`}>
+                <span>{item.icon}</span>{item.label}
+              </button>
+            ))}
+            <button onClick={()=>{dispatch({type:'LOGOUT'});setMenuOpen(false);}}
+              className="flex items-center gap-3 px-5 py-3 text-sm font-semibold w-full text-start text-red-500">
+              🚪 {t.logout}
+            </button>
+          </div>
+        )}
+      </header>
+
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-lg flex">
+        {navItems.slice(0,5).map(item=>(
+          <button key={item.page} onClick={()=>go(item.page)}
+            className={`flex-1 flex flex-col items-center py-2 text-xs font-semibold transition-all
+              ${state.page===item.page?'text-indigo-600':'text-gray-400'}`}>
+            <span className="text-xl">{item.icon}</span>
+            <span className="text-[10px] mt-0.5">{item.label}</span>
+          </button>
+        ))}
+      </nav>
+    </>
+  );
+}
+
+// ─── AUTH PAGES ────────────────────────────────────────────
+function LoginPage(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  const [email,setEmail]=useState('');
+  const [pass,setPass]=useState('');
+  const [err,setErr]=useState('');
+  const [loading,setLoading]=useState(false);
+
+  const doLogin=e=>{
+    e.preventDefault();setErr('');setLoading(true);
+    setTimeout(()=>{
+      const user=state.patients.find(p=>p.email===email&&p.password===pass);
+      if(user){
+        dispatch({type:'LOGIN',user});
+        dispatch({type:'SET_PAGE',page:user.role==='doctor'?'doctor':'dashboard'});
+      } else setErr(t.loginError);
+      setLoading(false);
+    },400);
+  };
+
+  return(
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-md fade-in">
+        <div className="text-center mb-8">
+          <div className="text-5xl mb-3">💊</div>
+          <h1 className="text-2xl font-bold text-indigo-600">{t.appName}</h1>
+          <p className="text-gray-500 text-sm mt-1">{t.tagline}</p>
+        </div>
+        <form onSubmit={doLogin} className="flex flex-col gap-4">
+          <Input label={t.email} value={email} onChange={setEmail} type="email" placeholder="example@email.com" required/>
+          <Input label={t.password} value={pass} onChange={setPass} type="password" placeholder="••••••••" required/>
+          {err&&<div className="bg-red-50 text-red-600 rounded-xl px-4 py-2 text-sm">{err}</div>}
+          <Btn type="submit" disabled={loading} size="lg" className="w-full mt-2">
+            {loading?'...' :t.login}
+          </Btn>
+        </form>
+        <div className="mt-5 p-4 bg-indigo-50 rounded-xl text-xs text-gray-500">
+          <p className="font-semibold mb-1 text-indigo-700">حسابات تجريبية:</p>
+          <p>🧑‍⚕️ مريض: demo@meditrack.com / demo123</p>
+          <p>👨‍⚕️ طبيب: doctor@meditrack.com / doctor123</p>
+        </div>
+        <p className="text-center text-sm text-gray-500 mt-4">
+          {t.dontHaveAccount}{' '}
+          <button onClick={()=>dispatch({type:'SET_PAGE',page:'register'})}
+            className="text-indigo-600 font-semibold hover:underline">{t.register}</button>
+        </p>
+        <div className="flex justify-center mt-3">
+          <button onClick={()=>dispatch({type:'SET_LANG',lang:state.language==='ar'?'en':'ar'})}
+            className="text-xs text-gray-400 hover:text-gray-600">
+            {state.language==='ar'?'English':'العربية'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RegisterPage(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  const [form,setForm]=useState({name:'',email:'',password:'',age:'',gender:'male',diagnosis:'',role:'patient'});
+  const [err,setErr]=useState('');
+  const set=k=>v=>setForm(f=>({...f,[k]:v}));
+
+  const doRegister=e=>{
+    e.preventDefault();setErr('');
+    if(state.patients.find(p=>p.email===form.email)){setErr(t.emailExists);return;}
+    const user={id:uid(),...form,age:parseInt(form.age)||30,points:0,profileImage:null};
+    dispatch({type:'ADD_PATIENT',patient:user});
+    dispatch({type:'LOGIN',user});
+    dispatch({type:'SET_PAGE',page:form.role==='doctor'?'doctor':'dashboard'});
+    dispatch({type:'SHOW_TOAST',msg:'✅ مرحباً بك في ميدي تراك!'});
+  };
+
+  return(
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-md fade-in overflow-y-auto max-h-screen">
+        <div className="text-center mb-6">
+          <div className="text-4xl mb-2">💊</div>
+          <h1 className="text-xl font-bold text-indigo-600">{t.register}</h1>
+        </div>
+        <form onSubmit={doRegister} className="flex flex-col gap-3">
+          <Input label={t.name} value={form.name} onChange={set('name')} required/>
+          <Input label={t.email} value={form.email} onChange={set('email')} type="email" required/>
+          <Input label={t.password} value={form.password} onChange={set('password')} type="password" required/>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t.age} value={form.age} onChange={set('age')} type="number" min="1" max="120"/>
+            <Select label={t.gender} value={form.gender} onChange={set('gender')}
+              options={[{value:'male',label:t.male},{value:'female',label:t.female}]}/>
+          </div>
+          <Select label={t.role} value={form.role} onChange={set('role')}
+            options={[{value:'patient',label:t.patient},{value:'doctor',label:t.doctor}]}/>
+          {form.role==='patient'&&
+            <Input label={t.diagnosis} value={form.diagnosis} onChange={set('diagnosis')} placeholder="مثال: ضغط الدم"/>}
+          {err&&<div className="bg-red-50 text-red-600 rounded-xl px-4 py-2 text-sm">{err}</div>}
+          <Btn type="submit" size="lg" className="w-full mt-2">{t.register}</Btn>
+        </form>
+        <p className="text-center text-sm text-gray-500 mt-4">
+          {t.alreadyHaveAccount}{' '}
+          <button onClick={()=>dispatch({type:'SET_PAGE',page:'login'})}
+            className="text-indigo-600 font-semibold hover:underline">{t.login}</button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── MED FORM MODAL ────────────────────────────────────────
+function MedForm({open,onClose,existing}){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  const today=getDateStr();
+  const in60=getDateStr(new Date(Date.now()+60*86400000));
+  const EMPTY={name:'',dosage:'',timesPerDay:1,schedule:['08:00'],startDate:today,endDate:in60,
+    notes:'',importance:'',risks:'',reminderEnabled:true,color:MED_COLORS[0],image:null};
+  const [form,setForm]=useState(existing||EMPTY);
+  useEffect(()=>{setForm(existing||EMPTY);},[existing]);
+  const set=k=>v=>setForm(f=>({...f,[k]:v}));
+
+  const setScheduleTime=(i,v)=>setForm(f=>{
+    const s=[...f.schedule];s[i]=v;return{...f,schedule:s};
+  });
+  const handleTimesChange=n=>{
+    const num=parseInt(n)||1;
+    const defaults=['08:00','13:00','18:00','22:00'];
+    const sched=Array.from({length:num},(_,i)=>form.schedule[i]||defaults[i]||'08:00');
+    setForm(f=>({...f,timesPerDay:num,schedule:sched}));
+  };
+
+  const submit=e=>{
+    e.preventDefault();
+    if(existing){
+      dispatch({type:'UPDATE_MED',id:existing.id,updates:form});
+      dispatch({type:'SHOW_TOAST',msg:t.medicationUpdated});
+    } else {
+      const med={...form,id:uid(),patientId:state.currentUser.id};
+      dispatch({type:'ADD_MED',med});
+      dispatch({type:'SHOW_TOAST',msg:t.medicationAdded});
+    }
+    onClose();
+  };
+
+  return(
+    <Modal open={open} onClose={onClose} title={existing?t.editMedication:t.addMedication} wide>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Input label={t.medName} value={form.name} onChange={set('name')} required className="col-span-2"/>
+          <Input label={t.dosage} value={form.dosage} onChange={set('dosage')} placeholder="مثال: 500mg" required/>
+          <Select label={t.timesPerDay} value={form.timesPerDay} onChange={handleTimesChange}
+            options={[1,2,3,4].map(n=>({value:n,label:`${n} ${n===1?'مرة':'مرات'}`}))}/>
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-gray-700 block mb-2">{t.scheduleTime}</label>
+          <div className="flex flex-wrap gap-2">
+            {form.schedule.map((time,i)=>(
+              <div key={i} className="flex items-center gap-1">
+                <span className="text-xs text-gray-500">{i+1}.</span>
+                <input type="time" value={time} onChange={e=>setScheduleTime(i,e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Input label={t.startDate} value={form.startDate} onChange={set('startDate')} type="date"/>
+          <Input label={t.endDate} value={form.endDate} onChange={set('endDate')} type="date"/>
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-gray-700 block mb-2">{t.medColor}</label>
+          <div className="flex gap-2 flex-wrap">
+            {MED_COLORS.map(c=>(
+              <button key={c} type="button" onClick={()=>set('color')(c)}
+                className={`w-7 h-7 rounded-full transition-transform ${form.color===c?'scale-125 ring-2 ring-offset-2 ring-gray-400':''}`}
+                style={{background:c}}/>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-gray-700 block mb-2">{t.photo}</label>
+          <div className="flex items-center gap-3">
+            {form.image?(
+              <div className="relative">
+                <img src={form.image} alt="صورة الدواء"
+                  className="w-16 h-16 rounded-xl object-cover border-2 shadow-sm"
+                  style={{borderColor:form.color}}/>
+                <button type="button" onClick={()=>set('image')(null)}
+                  className="absolute -top-1.5 -end-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center shadow hover:bg-red-600">×</button>
+              </div>
+            ):(
+              <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-2xl bg-gray-50">
+                💊
+              </div>
+            )}
+            <label className="cursor-pointer">
+              <div className="px-4 py-2 border-2 border-indigo-300 text-indigo-600 rounded-xl text-sm font-semibold hover:bg-indigo-50 transition-all flex items-center gap-2">
+                <span>📷</span> {t.uploadPhoto}
+              </div>
+              <input type="file" accept="image/*" className="hidden"
+                onChange={e=>{
+                  const file=e.target.files[0];
+                  if(!file)return;
+                  const reader=new FileReader();
+                  reader.onload=ev=>set('image')(ev.target.result);
+                  reader.readAsDataURL(file);
+                  e.target.value='';
+                }}/>
+            </label>
+            {form.image&&<p className="text-xs text-green-600 font-semibold">✅ تم رفع الصورة</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-semibold text-gray-700">{t.notes}</label>
+            <textarea value={form.notes} onChange={e=>set('notes')(e.target.value)} rows={2}
+              className="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white resize-none"/>
+          </div>
+          <Input label={t.importance} value={form.importance} onChange={set('importance')} placeholder="لماذا هذا الدواء مهم؟"/>
+          <Input label={t.risks} value={form.risks} onChange={set('risks')} placeholder="ما مخاطر التوقف عنه؟"/>
+        </div>
+
+        <label className="flex items-center gap-3 cursor-pointer">
+          <div onClick={()=>set('reminderEnabled')(!form.reminderEnabled)}
+            className={`w-12 h-6 rounded-full transition-all ${form.reminderEnabled?'bg-indigo-500':'bg-gray-300'} relative`}>
+            <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-all ${form.reminderEnabled?'end-0.5':'start-0.5'}`}/>
+          </div>
+          <span className="text-sm font-semibold text-gray-700">{t.reminderEnabled}</span>
+        </label>
+
+        <div className="flex gap-3 justify-end pt-2">
+          <Btn variant="ghost" onClick={onClose} type="button">{t.cancel}</Btn>
+          <Btn type="submit">{t.save}</Btn>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── DASHBOARD ─────────────────────────────────────────────
+function DashboardPage(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  useEnsureTodayDoses();
+
+  const today=getDateStr();
+  const myMeds=state.medications.filter(m=>m.patientId===state.currentUser.id);
+  const myDoses=state.doses.filter(d=>d.patientId===state.currentUser.id);
+  const todayDoses=myDoses.filter(d=>d.scheduledAt.startsWith(today));
+  const taken=todayDoses.filter(d=>d.takenAt).length;
+  const skipped=todayDoses.filter(d=>d.skipped).length;
+  const remaining=todayDoses.filter(d=>!d.takenAt&&!d.skipped).length;
+  const pct=todayDoses.length?Math.round((taken/todayDoses.length)*100):0;
+  const streak=calcStreak(myDoses,state.currentUser.id);
+  const points=calcPoints(myDoses,state.currentUser.id);
+  const last7=getLast7Days();
+  const weekPcts=last7.map(d=>calcAdherence(myDoses,d));
+  const weekAvg=weekPcts.filter(p=>p!==null).length?Math.round(weekPcts.filter(p=>p!==null).reduce((a,b)=>a+b,0)/weekPcts.filter(p=>p!==null).length):0;
+  const tip=t.tips[new Date().getDay()%t.tips.length];
+
+  // Achievements check
+  const checkAchievements=()=>{
+    const earned=[];
+    if(taken>0&&!state.patients.find(p=>p.id===state.currentUser.id)?.achievements?.includes('first_dose'))
+      earned.push('first_dose');
+    return earned;
+  };
+
+  return(
+    <div className="fade-in">
+      {/* Greeting */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">{getGreeting(state.language)}</h1>
+        <p className="text-gray-500 text-sm">{state.currentUser.name}</p>
+      </div>
+
+      {/* Today adherence big card */}
+      <Card className="p-5 mb-5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-indigo-100 text-sm font-medium">{t.todayDoses}</p>
+            <p className="text-4xl font-bold mt-1">{pct}%</p>
+            <p className="text-indigo-100 text-sm mt-1">{taken}/{todayDoses.length} {t.dosesTaken}</p>
+          </div>
+          <div className="relative w-20 h-20">
+            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3"/>
+              <circle cx="18" cy="18" r="15" fill="none" stroke="white" strokeWidth="3"
+                strokeDasharray={`${pct*0.942} ${94.2}`} strokeLinecap="round"/>
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-lg font-bold">{pct===100?'🎉':'💊'}</span>
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-white/20 grid grid-cols-3 gap-2 text-center">
+          <div><p className="text-xl font-bold">{taken}</p><p className="text-xs text-indigo-100">{t.dosesTaken}</p></div>
+          <div><p className="text-xl font-bold">{remaining}</p><p className="text-xs text-indigo-100">متبقي</p></div>
+          <div><p className="text-xl font-bold">{skipped}</p><p className="text-xs text-indigo-100">{t.dosesMissed}</p></div>
+        </div>
+      </Card>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <StatCard icon="🔥" label={t.streak} value={`${streak} ${t.days}`} color="yellow"/>
+        <StatCard icon="⭐" label={t.points} value={points} color="indigo"/>
+        <StatCard icon="📅" label={t.weeklyAdherence} value={`${weekAvg}%`} color={weekAvg>=80?'green':weekAvg>=50?'yellow':'red'}/>
+        <StatCard icon="💊" label={t.activeMeds} value={myMeds.length} color="blue"/>
+      </div>
+
+      {/* Weekly chart mini */}
+      <Card className="p-4 mb-5">
+        <h3 className="font-bold text-gray-700 mb-3 text-sm">{t.thisWeek}</h3>
+        <div className="flex items-end gap-1.5 h-16">
+          {last7.map((date,i)=>{
+            const p=weekPcts[i];
+            const color=p===100?'bg-green-500':p>0?'bg-yellow-400':p===0?'bg-red-400':'bg-gray-200';
+            const h=p!==null?Math.max(8,p*0.64):8;
+            const isToday=date===today;
+            return(
+              <div key={date} className="flex-1 flex flex-col items-center gap-1">
+                <div className={`w-full rounded-t-md ${color} transition-all ${isToday?'ring-2 ring-indigo-400':''}`} style={{height:`${h}px`}}/>
+                <span className="text-[10px] text-gray-400">{t.weekdays[(new Date(date+' 12:00').getDay())]}</span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Today's upcoming doses */}
+      {remaining>0&&(
+        <Card className="p-4 mb-5">
+          <h3 className="font-bold text-gray-700 mb-3 text-sm">⏰ جرعات متبقية اليوم</h3>
+          <div className="flex flex-col gap-2">
+            {todayDoses.filter(d=>!d.takenAt&&!d.skipped).slice(0,3).map(dose=>{
+              const med=state.medications.find(m=>m.id===dose.medicationId);
+              if(!med)return null;
+              return(
+                <div key={dose.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background:med.color}}/>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-700">{med.name}</p>
+                      <p className="text-xs text-gray-400">{med.dosage} • {formatTime(dose.scheduledAt.slice(11,16))}</p>
+                    </div>
+                  </div>
+                  <Btn variant="success" size="sm" onClick={()=>{
+                    dispatch({type:'LOG_DOSE',id:dose.id});
+                    dispatch({type:'SHOW_TOAST',msg:t.doseTaken});
+                  }}>{t.takeDose}</Btn>
+                </div>
+              );
+            })}
+          </div>
+          {remaining>3&&<p className="text-xs text-gray-400 text-center mt-2">+{remaining-3} جرعات أخرى</p>}
+        </Card>
+      )}
+
+      {/* Daily tip */}
+      <Card className="p-4 mb-5 bg-blue-50 border-blue-100">
+        <p className="text-sm font-semibold text-blue-700">{t.dailyTip}</p>
+        <p className="text-sm text-blue-600 mt-1">{tip}</p>
+      </Card>
+
+      {/* Achievements teaser */}
+      <Card className="p-4 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-gray-700 text-sm">{t.achievements}</h3>
+          <button onClick={()=>dispatch({type:'SET_PAGE',page:'reports'})} className="text-xs text-indigo-500 hover:underline">عرض الكل</button>
+        </div>
+        <div className="flex gap-3 flex-wrap">
+          {ACHIEVEMENTS_DEF.slice(0,4).map(a=>{
+            const unlocked=(a.id==='first_dose'&&taken>0)||(a.id==='streak_7'&&streak>=7)||(a.id==='streak_30'&&streak>=30)||(a.id==='perfect_week'&&weekAvg===100)||(a.id==='points_100'&&points>=100);
+            return(
+              <div key={a.id} className={`flex flex-col items-center gap-1 p-2 rounded-xl ${unlocked?'bg-yellow-50':'bg-gray-50 opacity-50'}`}>
+                <span className="text-2xl">{a.icon}</span>
+                <span className="text-xs text-center text-gray-600 max-w-[60px] leading-tight">
+                  {state.language==='ar'?a.titleAr:a.titleEn}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* AI Insights */}
+      <AIInsightsCard/>
+    </div>
+  );
+}
+
+function AIInsightsCard(){
+  const {state}=useApp();
+  const t=useT();
+  const myDoses=state.doses.filter(d=>d.patientId===state.currentUser?.id);
+  const insights=useMemo(()=>{
+    const result=[];
+    if(!myDoses.length)return result;
+    // Find most missed time
+    const byTime={};
+    myDoses.filter(d=>!d.takenAt).forEach(d=>{
+      const time=d.scheduledAt.slice(11,16);
+      byTime[time]=(byTime[time]||0)+1;
+    });
+    const missedTime=Object.entries(byTime).sort((a,b)=>b[1]-a[1])[0];
+    if(missedTime&&missedTime[1]>2)
+      result.push(`غالبًا تفوّت جرعة ${formatTime(missedTime[0])} 🕐`);
+    // Find best days
+    const byDay={};
+    myDoses.filter(d=>d.takenAt).forEach(d=>{
+      const day=new Date(d.scheduledAt).getDay();
+      byDay[day]=(byDay[day]||0)+1;
+    });
+    const bestDay=Object.entries(byDay).sort((a,b)=>b[1]-a[1])[0];
+    if(bestDay)
+      result.push(`أفضل أيامك: ${t.weekdays[parseInt(bestDay[0])]} 📈`);
+    // Overall stats
+    const totalTaken=myDoses.filter(d=>d.takenAt).length;
+    const totalScheduled=myDoses.length;
+    if(totalScheduled>0){
+      const overall=Math.round((totalTaken/totalScheduled)*100);
+      if(overall>=80)result.push(`الالتزام الكلي ممتاز: ${overall}% 🌟`);
+      else if(overall>=50)result.push(`الالتزام الكلي جيد: ${overall}% - يمكن تحسينه 💪`);
+      else result.push(`الالتزام الكلي ${overall}% - حاول الالتزام أكثر ⚠️`);
+    }
+    return result;
+  },[myDoses.length]);
+
+  if(!insights.length)return null;
+  return(
+    <Card className="p-4 mb-5 bg-purple-50 border-purple-100">
+      <h3 className="font-bold text-purple-700 mb-3 text-sm">{t.aiInsights}</h3>
+      <ul className="flex flex-col gap-2">
+        {insights.map((ins,i)=>(
+          <li key={i} className="text-sm text-purple-600 flex items-start gap-2">
+            <span className="mt-0.5">•</span>{ins}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+// ─── MEDICATIONS PAGE ──────────────────────────────────────
+function MedicationsPage(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  useEnsureTodayDoses();
+  const [showForm,setShowForm]=useState(false);
+  const [editMed,setEditMed]=useState(null);
+  const [delMed,setDelMed]=useState(null);
+  const [showDoseFor,setShowDoseFor]=useState(null);
+
+  const myMeds=state.medications.filter(m=>m.patientId===state.currentUser.id);
+  const today=getDateStr();
+  const myDoses=state.doses.filter(d=>d.patientId===state.currentUser.id);
+
+  const getMedAdherence=medId=>{
+    const doses=myDoses.filter(d=>d.medicationId===medId);
+    if(!doses.length)return null;
+    const taken=doses.filter(d=>d.takenAt).length;
+    return Math.round((taken/doses.length)*100);
+  };
+
+  const getTodayDosesForMed=medId=>myDoses.filter(d=>d.medicationId===medId&&d.scheduledAt.startsWith(today));
+
+  return(
+    <div className="fade-in">
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-xl font-bold text-gray-800">{t.medications}</h1>
+        <Btn onClick={()=>{setEditMed(null);setShowForm(true);}}>{t.addMedication}</Btn>
+      </div>
+
+      {myMeds.length===0?(
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">💊</div>
+          <p className="text-gray-500 mb-4">{t.noMedications}</p>
+          <Btn onClick={()=>setShowForm(true)}>{t.addFirstMed}</Btn>
+        </div>
+      ):(
+        <div className="flex flex-col gap-3">
+          {myMeds.map(med=>{
+            const adh=getMedAdherence(med.id);
+            const todayMedDoses=getTodayDosesForMed(med.id);
+            const taken=todayMedDoses.filter(d=>d.takenAt).length;
+            return(
+              <Card key={med.id} className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex-shrink-0 shadow-sm overflow-hidden"
+                      style={{background:med.color+'20',border:`2px solid ${med.color}`}}>
+                      {med.image
+                        ?<img src={med.image} alt={med.name} className="w-full h-full object-cover"/>
+                        :<div className="w-full h-full flex items-center justify-center text-xl">💊</div>}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800">{med.name}</h3>
+                      <p className="text-xs text-gray-500">{med.dosage} • {med.timesPerDay}× يوميًا</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{med.startDate} → {med.endDate}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <AdherenceBadge pct={adh}/>
+                    <span className="text-xs text-gray-400">{taken}/{todayMedDoses.length} اليوم</span>
+                  </div>
+                </div>
+
+                {/* Today's doses for this med */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {todayMedDoses.map((dose,i)=>{
+                    const taken=!!dose.takenAt;
+                    const skipped=dose.skipped;
+                    return(
+                      <div key={dose.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
+                        ${taken?'bg-green-50 border-green-300 text-green-700':skipped?'bg-gray-50 border-gray-200 text-gray-400':'bg-orange-50 border-orange-200 text-orange-600'}`}>
+                        <span>{taken?'✅':skipped?'⏭️':'⏰'}</span>
+                        <span>{formatTime(dose.scheduledAt.slice(11,16))}</span>
+                        {!taken&&!skipped&&(
+                          <button onClick={()=>{dispatch({type:'LOG_DOSE',id:dose.id});dispatch({type:'SHOW_TOAST',msg:t.doseTaken});}}
+                            className="ms-1 bg-green-500 text-white rounded-full px-2 py-0.5 text-xs hover:bg-green-600 transition-all">✓</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Med details */}
+                {(med.notes||med.importance)&&(
+                  <div className="bg-gray-50 rounded-lg px-3 py-2 mb-3 text-xs text-gray-500">
+                    {med.notes&&<p>📝 {med.notes}</p>}
+                    {med.importance&&<p className="mt-0.5">⚕️ {med.importance}</p>}
+                  </div>
+                )}
+
+                <div className="flex gap-2 justify-end">
+                  <Btn variant="ghost" size="sm" onClick={()=>{setEditMed(med);setShowForm(true);}}>{t.edit} ✏️</Btn>
+                  <Btn variant="danger" size="sm" onClick={()=>setDelMed(med)}>🗑️</Btn>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <MedForm open={showForm} onClose={()=>{setShowForm(false);setEditMed(null);}} existing={editMed}/>
+
+      <Modal open={!!delMed} onClose={()=>setDelMed(null)} title="حذف الدواء">
+        <p className="text-gray-600 mb-4">{t.confirmDelete}</p>
+        <p className="font-bold text-gray-800 mb-5">{delMed?.name}</p>
+        <div className="flex gap-3 justify-end">
+          <Btn variant="ghost" onClick={()=>setDelMed(null)}>{t.cancel}</Btn>
+          <Btn variant="danger" onClick={()=>{
+            dispatch({type:'DELETE_MED',id:delMed.id});
+            dispatch({type:'SHOW_TOAST',msg:t.medicationDeleted,kind:'error'});
+            setDelMed(null);
+          }}>{t.delete}</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+// ─── PROFILE PAGE ──────────────────────────────────────────
+function ProfilePage(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  const u=state.currentUser;
+  const [editing,setEditing]=useState(false);
+  const [form,setForm]=useState({name:u.name,age:u.age,gender:u.gender,diagnosis:u.diagnosis||''});
+  const set=k=>v=>setForm(f=>({...f,[k]:v}));
+  const myMeds=state.medications.filter(m=>m.patientId===u.id);
+  const myDoses=state.doses.filter(d=>d.patientId===u.id);
+  const streak=calcStreak(myDoses,u.id);
+  const points=calcPoints(myDoses,u.id);
+  const totalTaken=myDoses.filter(d=>d.takenAt).length;
+  const overall=myDoses.length?Math.round((totalTaken/myDoses.length)*100):0;
+
+  const save=()=>{
+    dispatch({type:'UPDATE_PATIENT',id:u.id,updates:form});
+    dispatch({type:'SHOW_TOAST',msg:t.profileUpdated});
+    setEditing(false);
+  };
+
+  return(
+    <div className="fade-in">
+      <h1 className="text-xl font-bold text-gray-800 mb-5">{t.profile}</h1>
+
+      <Card className="p-5 mb-5">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-3xl font-bold text-indigo-600 flex-shrink-0">
+            {(u.name||'U')[0]}
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-800">{u.name}</h2>
+            <p className="text-sm text-gray-500">{u.email}</p>
+            <p className="text-xs text-gray-400">{u.role==='doctor'?t.doctor:t.patient}</p>
+          </div>
+          <button onClick={()=>setEditing(!editing)} className="ms-auto text-indigo-500 hover:text-indigo-700 text-sm font-semibold">
+            {editing?t.cancel:`✏️ ${t.edit}`}
+          </button>
+        </div>
+
+        {editing?(
+          <div className="flex flex-col gap-3">
+            <Input label={t.name} value={form.name} onChange={set('name')} required/>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label={t.age} value={form.age} onChange={set('age')} type="number"/>
+              <Select label={t.gender} value={form.gender} onChange={set('gender')}
+                options={[{value:'male',label:t.male},{value:'female',label:t.female}]}/>
+            </div>
+            {u.role==='patient'&&
+              <Input label={t.diagnosis} value={form.diagnosis} onChange={set('diagnosis')}/>}
+            <Btn onClick={save}>{t.save}</Btn>
+          </div>
+        ):(
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><p className="text-gray-400 text-xs">{t.age}</p><p className="font-semibold text-gray-700">{u.age}</p></div>
+            <div><p className="text-gray-400 text-xs">{t.gender}</p><p className="font-semibold text-gray-700">{u.gender==='male'?t.male:t.female}</p></div>
+            {u.diagnosis&&<div className="col-span-2"><p className="text-gray-400 text-xs">{t.diagnosis}</p><p className="font-semibold text-gray-700">{u.diagnosis}</p></div>}
+          </div>
+        )}
+      </Card>
+
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <StatCard icon="🔥" label={t.streak} value={`${streak} ${t.days}`} color="yellow"/>
+        <StatCard icon="⭐" label={t.points} value={points} color="indigo"/>
+        <StatCard icon="✅" label={t.adherence} value={`${overall}%`} color={overall>=80?'green':overall>=50?'yellow':'red'}/>
+        <StatCard icon="💊" label={t.totalMeds} value={myMeds.length} color="blue"/>
+      </div>
+
+      <Card className="p-4 mb-5">
+        <h3 className="font-bold text-gray-700 mb-3 text-sm">{t.achievements}</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {ACHIEVEMENTS_DEF.map(a=>{
+            const unlocked=(a.id==='first_dose'&&totalTaken>0)||(a.id==='streak_7'&&streak>=7)||(a.id==='streak_30'&&streak>=30)||(a.id==='points_100'&&points>=100)||(a.id==='streak_100'&&streak>=100);
+            return(
+              <div key={a.id} className={`flex flex-col items-center gap-1 p-3 rounded-xl text-center transition-all
+                ${unlocked?'bg-yellow-50 border border-yellow-200':'bg-gray-50 opacity-40'}`}>
+                <span className="text-3xl">{a.icon}</span>
+                <span className="text-xs font-semibold text-gray-700">{state.language==='ar'?a.titleAr:a.titleEn}</span>
+                <span className="text-[10px] text-gray-400">{state.language==='ar'?a.descAr:a.descEn}</span>
+                {unlocked&&<span className="text-[10px] bg-yellow-400 text-white px-2 py-0.5 rounded-full">✓ مكتسب</span>}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card className="p-4 mb-5">
+        <h3 className="font-bold text-gray-700 mb-3 text-sm">الأدوية الحالية</h3>
+        {myMeds.length===0?<p className="text-gray-400 text-sm">{t.noMedications}</p>:(
+          <div className="flex flex-col gap-2">
+            {myMeds.map(med=>(
+              <div key={med.id} className="flex items-center gap-2 py-1.5">
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background:med.color}}/>
+                <span className="text-sm font-semibold text-gray-700">{med.name}</span>
+                <span className="text-xs text-gray-400">{med.dosage}</span>
+                <AdherenceBadge pct={getMedAdh(med.id,myDoses)} />
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+function getMedAdh(medId,doses){
+  const d=doses.filter(x=>x.medicationId===medId);
+  if(!d.length)return null;
+  return Math.round((d.filter(x=>x.takenAt).length/d.length)*100);
+}
+
+// ─── HISTORY PAGE ──────────────────────────────────────────
+function HistoryPage(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  const today=new Date();
+  const [year,setYear]=useState(today.getFullYear());
+  const [month,setMonth]=useState(today.getMonth());
+  const [selected,setSelected]=useState(null);
+  const [filterMed,setFilterMed]=useState('all');
+
+  const myMeds=state.medications.filter(m=>m.patientId===state.currentUser.id);
+  const myDoses=state.doses.filter(d=>d.patientId===state.currentUser.id&&(filterMed==='all'||d.medicationId===filterMed));
+
+  const daysInMonth=getDaysInMonth(year,month);
+  const firstDay=getFirstDayOfMonth(year,month);
+
+  const goMonthBack=()=>{if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);};
+  const goMonthNext=()=>{if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);};
+
+  const getDateAdh=day=>{
+    const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    return {pct:calcAdherence(myDoses,ds),date:ds};
+  };
+
+  const selectedDoses=selected?myDoses.filter(d=>d.scheduledAt.startsWith(selected)):[];
+
+  return(
+    <div className="fade-in">
+      <h1 className="text-xl font-bold text-gray-800 mb-5">{t.history}</h1>
+
+      {/* Filter */}
+      <div className="mb-4">
+        <select value={filterMed} onChange={e=>setFilterMed(e.target.value)}
+          className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white w-full max-w-xs">
+          <option value="all">{t.all} - {t.filterByMed}</option>
+          {myMeds.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      </div>
+
+      {/* Calendar */}
+      <Card className="p-4 mb-5">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={goMonthBack} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600">←</button>
+          <h3 className="font-bold text-gray-800">{t.months[month]} {year}</h3>
+          <button onClick={goMonthNext} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600">→</button>
+        </div>
+        {/* Weekday headers */}
+        <div className="grid grid-cols-7 mb-2">
+          {t.weekdays.map(d=>(
+            <div key={d} className="text-center text-xs text-gray-400 font-semibold py-1">{d}</div>
+          ))}
+        </div>
+        {/* Days grid */}
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({length:firstDay}).map((_,i)=><div key={`e${i}`}/>)}
+          {Array.from({length:daysInMonth},(_,i)=>{
+            const day=i+1;
+            const {pct,date}=getDateAdh(day);
+            const isToday=date===getDateStr();
+            const isSel=date===selected;
+            const cls=getAdherenceColorClass(pct);
+            return(
+              <div key={day} onClick={()=>setSelected(isSel?null:date)}
+                className={`calendar-day ${cls} ${isToday?'ring-2 ring-indigo-400 ring-offset-1':''} ${isSel?'scale-110':''}`}>
+                {day}
+              </div>
+            );
+          })}
+        </div>
+        {/* Legend */}
+        <div className="flex gap-4 justify-center mt-4 text-xs text-gray-500">
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block"/>100%</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 inline-block"/>جزئي</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block"/>0%</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-block"/>-</span>
+        </div>
+      </Card>
+
+      {/* Selected day detail */}
+      {selected&&(
+        <Card className="p-4 fade-in mb-5">
+          <h3 className="font-bold text-gray-700 mb-3">{selected}</h3>
+          {selectedDoses.length===0?(
+            <p className="text-gray-400 text-sm">{t.noData}</p>
+          ):(
+            <div className="flex flex-col gap-2">
+              {selectedDoses.map(dose=>{
+                const med=state.medications.find(m=>m.id===dose.medicationId);
+                if(!med)return null;
+                return(
+                  <div key={dose.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{background:med.color}}/>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700">{med.name}</p>
+                        <p className="text-xs text-gray-400">{formatTime(dose.scheduledAt.slice(11,16))}</p>
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full font-semibold
+                      ${dose.takenAt?'bg-green-100 text-green-700':dose.skipped?'bg-gray-100 text-gray-500':'bg-red-100 text-red-600'}`}>
+                      {dose.takenAt?'✅ أُخذ':dose.skipped?'⏭️ تخطي':'❌ فائت'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── REPORTS PAGE ──────────────────────────────────────────
+function ReportsPage(){
+  const {state}=useApp();
+  const t=useT();
+  const chartRef=useRef(null);
+  const chartRef2=useRef(null);
+  const chartInst=useRef(null);
+  const chartInst2=useRef(null);
+
+  const myMeds=state.medications.filter(m=>m.patientId===state.currentUser.id);
+  const myDoses=state.doses.filter(d=>d.patientId===state.currentUser.id);
+  const last7=getLast7Days();
+  const last4Weeks=getLast4Weeks();
+
+  const weeklyData=last7.map(d=>{const p=calcAdherence(myDoses,d);return p===null?0:p;});
+  const weeklyLabels=last7.map(d=>t.weekdays[new Date(d+' 12:00').getDay()]);
+
+  const monthlyData=last4Weeks.map(week=>{
+    const pcts=week.map(d=>calcAdherence(myDoses,d)).filter(p=>p!==null);
+    return pcts.length?Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length):0;
+  });
+
+  const medAdh=myMeds.map(m=>{
+    const d=myDoses.filter(x=>x.medicationId===m.id);
+    const p=d.length?Math.round((d.filter(x=>x.takenAt).length/d.length)*100):0;
+    return{name:m.name,pct:p,color:m.color};
+  });
+
+  // Last week vs this week
+  const thisWeekAvg=weeklyData.slice(0,7).reduce((a,b)=>a+b,0)/7;
+  const prevWeek=last4Weeks[2].map(d=>{const p=calcAdherence(myDoses,d);return p===null?0:p;});
+  const prevWeekAvg=prevWeek.reduce((a,b)=>a+b,0)/7;
+  const diff=Math.round(thisWeekAvg-prevWeekAvg);
+
+  useEffect(()=>{
+    if(!chartRef.current)return;
+    if(chartInst.current)chartInst.current.destroy();
+    chartInst.current=new Chart(chartRef.current,{
+      type:'bar',
+      data:{
+        labels:weeklyLabels,
+        datasets:[{
+          label:t.adherence+' %',
+          data:weeklyData,
+          backgroundColor:weeklyData.map(p=>p===100?'#22c55e':p>0?'#f59e0b':'#ef4444'),
+          borderRadius:8,
+        }]
+      },
+      options:{
+        responsive:true,scales:{y:{beginAtZero:true,max:100,grid:{color:'#f1f5f9'}}},
+        plugins:{legend:{display:false}},
+        animation:{duration:800}
+      }
+    });
+  },[myDoses.length]);
+
+  useEffect(()=>{
+    if(!chartRef2.current||!medAdh.length)return;
+    if(chartInst2.current)chartInst2.current.destroy();
+    chartInst2.current=new Chart(chartRef2.current,{
+      type:'doughnut',
+      data:{
+        labels:medAdh.map(m=>m.name),
+        datasets:[{data:medAdh.map(m=>m.pct),backgroundColor:medAdh.map(m=>m.color),borderWidth:2}]
+      },
+      options:{responsive:true,plugins:{legend:{position:'bottom'}}}
+    });
+  },[myMeds.length]);
+
+  const exportCSV=()=>{
+    const rows=[['التاريخ','نسبة الالتزام','الجرعات المأخوذة','الجرعات الكلية']];
+    const dates=[...new Set(myDoses.map(d=>d.scheduledAt.slice(0,10)))].sort();
+    dates.forEach(date=>{
+      const day=myDoses.filter(d=>d.scheduledAt.startsWith(date));
+      const taken=day.filter(d=>d.takenAt).length;
+      const pct=day.length?Math.round((taken/day.length)*100):0;
+      rows.push([date,`${pct}%`,taken,day.length]);
+    });
+    const csv=rows.map(r=>r.join(',')).join('\n');
+    const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='meditrack_report.csv';a.click();
+  };
+
+  const streak=calcStreak(myDoses,state.currentUser.id);
+  const points=calcPoints(myDoses,state.currentUser.id);
+  const totalTaken=myDoses.filter(d=>d.takenAt).length;
+  const overall=myDoses.length?Math.round((totalTaken/myDoses.length)*100):0;
+
+  return(
+    <div className="fade-in">
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-xl font-bold text-gray-800">{t.reports}</h1>
+        <Btn variant="outline" size="sm" onClick={exportCSV}>{t.exportCSV}</Btn>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <StatCard icon="📊" label="الالتزام الكلي" value={`${overall}%`} color={overall>=80?'green':overall>=50?'yellow':'red'}/>
+        <StatCard icon="🔥" label={t.streak} value={`${streak} ${t.days}`} color="yellow"/>
+        <StatCard icon="⭐" label={t.points} value={points} color="indigo"/>
+        <StatCard icon="💊" label="جرعات مُسجّلة" value={totalTaken} color="blue"/>
+      </div>
+
+      {/* Week comparison */}
+      <Card className="p-4 mb-5">
+        <h3 className="font-bold text-gray-700 mb-3 text-sm">{t.comparisonTitle}</h3>
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <p className="text-xs text-gray-400">الأسبوع الماضي</p>
+            <p className="text-xl font-bold text-gray-700">{Math.round(prevWeekAvg)}%</p>
+          </div>
+          <div className={`flex-1 text-center py-2 px-4 rounded-xl font-bold text-sm
+            ${diff>0?'bg-green-50 text-green-700':diff<0?'bg-red-50 text-red-600':'bg-gray-50 text-gray-600'}`}>
+            {diff>0?`${t.improvement} +${diff}%`:diff<0?`${t.declined} ${diff}%`:t.same}
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-gray-400">هذا الأسبوع</p>
+            <p className="text-xl font-bold text-gray-700">{Math.round(thisWeekAvg)}%</p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Weekly bar chart */}
+      <Card className="p-4 mb-5">
+        <h3 className="font-bold text-gray-700 mb-3 text-sm">{t.weeklyAdherence}</h3>
+        <canvas ref={chartRef} height={180}/>
+      </Card>
+
+      {/* Medication adherence donut */}
+      {medAdh.length>0&&(
+        <Card className="p-4 mb-5">
+          <h3 className="font-bold text-gray-700 mb-3 text-sm">{t.adherenceByMed}</h3>
+          <canvas ref={chartRef2} height={180}/>
+          <div className="mt-3 flex flex-col gap-2">
+            {medAdh.map(m=>(
+              <div key={m.name} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background:m.color}}/>
+                <span className="text-sm text-gray-700 flex-1">{m.name}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-24 bg-gray-100 rounded-full h-1.5">
+                    <div className="h-1.5 rounded-full progress-bar" style={{width:`${m.pct}%`,background:m.color}}/>
+                  </div>
+                  <span className="text-xs font-bold text-gray-600 w-10 text-end">{m.pct}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Achievements */}
+      <Card className="p-4 mb-5">
+        <h3 className="font-bold text-gray-700 mb-3 text-sm">{t.achievements}</h3>
+        <div className="grid grid-cols-2 gap-2">
+          {ACHIEVEMENTS_DEF.map(a=>{
+            const unlocked=(a.id==='first_dose'&&totalTaken>0)||(a.id==='streak_7'&&streak>=7)||(a.id==='streak_30'&&streak>=30)||(a.id==='points_100'&&points>=100)||(a.id==='streak_100'&&streak>=100);
+            return(
+              <div key={a.id} className={`flex items-center gap-2 p-3 rounded-xl ${unlocked?'bg-yellow-50 border border-yellow-200':'bg-gray-50 opacity-50'}`}>
+                <span className="text-2xl">{a.icon}</span>
+                <div>
+                  <p className="text-xs font-bold text-gray-700">{state.language==='ar'?a.titleAr:a.titleEn}</p>
+                  {unlocked&&<p className="text-[10px] text-yellow-600">✓ مكتسب</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─── SETTINGS PAGE ─────────────────────────────────────────
+function SettingsPage(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  const [notifEnabled,setNotifEnabled]=useState(false);
+
+  useEffect(()=>{
+    if('Notification' in window)setNotifEnabled(Notification.permission==='granted');
+  },[]);
+
+  const requestNotif=async()=>{
+    if('Notification' in window){
+      const p=await Notification.requestPermission();
+      setNotifEnabled(p==='granted');
+      if(p==='granted')new Notification('MediTrack 💊',{body:'الإشعارات مفعّلة! سنذكّرك بجرعاتك 🔔'});
+    }
+  };
+
+  const clearData=()=>{
+    if(confirm('هل تريد مسح جميع البيانات؟')){{
+      localStorage.removeItem('meditrack_v2');location.reload();
+    }}
+  };
+
+  return(
+    <div className="fade-in">
+      <h1 className="text-xl font-bold text-gray-800 mb-5">{t.settings}</h1>
+
+      <div className="flex flex-col gap-3">
+        {/* Language */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-gray-800">🌐 {t.language}</p>
+              <p className="text-xs text-gray-400">{state.language==='ar'?'العربية':'English'}</p>
+            </div>
+            <button onClick={()=>dispatch({type:'SET_LANG',lang:state.language==='ar'?'en':'ar'})}
+              className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-semibold hover:bg-indigo-100 transition-all">
+              {state.language==='ar'?'English':'العربية'}
+            </button>
+          </div>
+        </Card>
+
+        {/* Dark mode */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-gray-800">🌙 {t.darkMode}</p>
+              <p className="text-xs text-gray-400">{state.darkMode?'مفعّل':'معطّل'}</p>
+            </div>
+            <div onClick={()=>dispatch({type:'SET_DARK',val:!state.darkMode})}
+              className={`w-12 h-6 rounded-full transition-all cursor-pointer ${state.darkMode?'bg-indigo-500':'bg-gray-300'} relative`}>
+              <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-all ${state.darkMode?'end-0.5':'start-0.5'}`}/>
+            </div>
+          </div>
+        </Card>
+
+        {/* Notifications */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-gray-800">🔔 {t.notifications}</p>
+              <p className="text-xs text-gray-400">{notifEnabled?t.notificationsEnabled:t.notificationsDisabled}</p>
+            </div>
+            <Btn variant={notifEnabled?'success':'outline'} size="sm" onClick={requestNotif}>
+              {notifEnabled?'✅ مفعّل':'تفعيل'}
+            </Btn>
+          </div>
+        </Card>
+
+        {/* Account info */}
+        <Card className="p-4">
+          <p className="font-semibold text-gray-800 mb-3">👤 معلومات الحساب</p>
+          <div className="flex flex-col gap-1 text-sm text-gray-600">
+            <p><span className="font-semibold">الاسم:</span> {state.currentUser?.name}</p>
+            <p><span className="font-semibold">البريد:</span> {state.currentUser?.email}</p>
+            <p><span className="font-semibold">الدور:</span> {state.currentUser?.role==='doctor'?t.doctor:t.patient}</p>
+          </div>
+        </Card>
+
+        {/* App info */}
+        <Card className="p-4">
+          <p className="font-semibold text-gray-800 mb-2">ℹ️ عن التطبيق</p>
+          <p className="text-sm text-gray-500">MediTrack v1.0 - إدارة الالتزام الدوائي الذكية</p>
+          <p className="text-xs text-gray-400 mt-1">جميع البيانات محفوظة محليًا على جهازك</p>
+        </Card>
+
+        <Btn variant="danger" onClick={clearData} className="w-full">🗑️ مسح جميع البيانات</Btn>
+        <Btn variant="ghost" onClick={()=>dispatch({type:'LOGOUT'})} className="w-full">🚪 {t.logout}</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ─── DOCTOR VIEW ───────────────────────────────────────────
+function DoctorPage(){
+  const {state,dispatch}=useApp();
+  const t=useT();
+  const [selectedPatient,setSelectedPatient]=useState(null);
+  const [noteText,setNoteText]=useState('');
+  const [showAddPatient,setShowAddPatient]=useState(false);
+
+  const allPatients=state.patients.filter(p=>p.role==='patient');
+
+  const getPatientStats=patientId=>{
+    const doses=state.doses.filter(d=>d.patientId===patientId);
+    const today=getDateStr();
+    const todayPct=calcAdherence(doses,today);
+    const streak=calcStreak(doses,patientId);
+    const last7=getLast7Days();
+    const weekPcts=last7.map(d=>calcAdherence(doses,d)).filter(p=>p!==null);
+    const weekAvg=weekPcts.length?Math.round(weekPcts.reduce((a,b)=>a+b,0)/weekPcts.length):0;
+    const meds=state.medications.filter(m=>m.patientId===patientId);
+    return{todayPct,streak,weekAvg,medsCount:meds.length};
+  };
+
+  return(
+    <div className="fade-in">
+      <h1 className="text-xl font-bold text-gray-800 mb-2">{t.doctorView}</h1>
+      <p className="text-sm text-gray-500 mb-5">مرحباً د. {state.currentUser.name}</p>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <StatCard icon="👥" label={t.patients} value={allPatients.length} color="indigo"/>
+        <StatCard icon="✅" label="ملتزمون اليوم" value={allPatients.filter(p=>{const s=getPatientStats(p.id);return s.todayPct===100;}).length} color="green"/>
+      </div>
+
+      {/* Patients list */}
+      <div className="flex flex-col gap-3">
+        {allPatients.map(patient=>{
+          const stats=getPatientStats(patient.id);
+          const color=getAdherenceColor(stats.todayPct);
+          const colorCls=color==='green'?'border-green-400 bg-green-50':color==='yellow'?'border-yellow-400 bg-yellow-50':color==='red'?'border-red-400 bg-red-50':'border-gray-200 bg-gray-50';
+          return(
+            <Card key={patient.id} className={`p-4 border-2 cursor-pointer hover:shadow-md transition-all ${colorCls}`}
+              onClick={()=>setSelectedPatient(selectedPatient?.id===patient.id?null:patient)}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-lg font-bold text-indigo-600 shadow-sm">
+                    {(patient.name||'P')[0]}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-800">{patient.name}</p>
+                    <p className="text-xs text-gray-500">{patient.diagnosis}</p>
+                    <p className="text-xs text-gray-400">{patient.email}</p>
+                  </div>
+                </div>
+                <div className="text-end">
+                  <AdherenceBadge pct={stats.todayPct}/>
+                  <p className="text-xs text-gray-400 mt-1">أسبوع: {stats.weekAvg}%</p>
+                  <p className="text-xs text-gray-400">سلسلة: {stats.streak} يوم</p>
+                </div>
+              </div>
+
+              {selectedPatient?.id===patient.id&&(
+                <div className="mt-4 pt-4 border-t border-gray-200 fade-in">
+                  {/* Patient's meds */}
+                  <p className="font-semibold text-sm text-gray-700 mb-2">الأدوية ({stats.medsCount})</p>
+                  {state.medications.filter(m=>m.patientId===patient.id).map(med=>{
+                    const adh=getMedAdh(med.id,state.doses);
+                    return(
+                      <div key={med.id} className="flex items-center gap-2 py-1">
+                        <div className="w-2 h-2 rounded-full" style={{background:med.color}}/>
+                        <span className="text-sm text-gray-700">{med.name}</span>
+                        <span className="text-xs text-gray-400">{med.dosage}</span>
+                        <AdherenceBadge pct={adh}/>
+                      </div>
+                    );
+                  })}
+
+                  {/* Last 7 days */}
+                  <p className="font-semibold text-sm text-gray-700 mt-3 mb-2">آخر 7 أيام</p>
+                  <div className="flex items-end gap-1 h-12">
+                    {getLast7Days().map((date,i)=>{
+                      const p=calcAdherence(state.doses.filter(d=>d.patientId===patient.id),date);
+                      const color=p===100?'bg-green-500':p>0?'bg-yellow-400':p===0?'bg-red-400':'bg-gray-200';
+                      const h=p!==null?Math.max(4,p*0.48):4;
+                      return<div key={date} className={`flex-1 ${color} rounded-t`} style={{height:`${h}px`}} title={`${date}: ${p}%`}/>;
+                    })}
+                  </div>
+
+                  {/* Send note */}
+                  <div className="mt-3 flex gap-2">
+                    <input value={noteText} onChange={e=>setNoteText(e.target.value)}
+                      placeholder="إرسال ملاحظة للمريض..."
+                      className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                    <Btn size="sm" onClick={()=>{
+                      dispatch({type:'SHOW_TOAST',msg:`✅ تم إرسال الملاحظة إلى ${patient.name}`});
+                      setNoteText('');
+                    }}>{t.sendNote}</Btn>
+                  </div>
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+
+      {allPatients.length===0&&(
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-4xl mb-3">👥</p>
+          <p>{t.noData}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MAIN APP ──────────────────────────────────────────────
+function PageWrapper({children}){
+  return(
+    <div className="md:ms-56">
+      <div className="pt-16 md:pt-0 pb-20 md:pb-6 px-4 md:px-6 max-w-2xl mx-auto min-h-screen">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  const {state}=useApp();
+  const page=state.page;
+
+  if(!state.currentUser){
+    if(page==='register')return<RegisterPage/>;
+    return<LoginPage/>;
+  }
+
+  const renderPage=()=>{
+    switch(page){
+      case 'dashboard':return<DashboardPage/>;
+      case 'medications':return<MedicationsPage/>;
+      case 'history':return<HistoryPage/>;
+      case 'reports':return<ReportsPage/>;
+      case 'profile':return<ProfilePage/>;
+      case 'settings':return<SettingsPage/>;
+      case 'doctor':return<DoctorPage/>;
+      default:return<DashboardPage/>;
+    }
+  };
+
+  return(
+    <>
+      <Navbar/>
+      <PageWrapper>{renderPage()}</PageWrapper>
+      <Toast/>
+    </>
+  );
+}
+
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(<AppProvider><App/></AppProvider>);
+</script>
+</body>
+</html>
